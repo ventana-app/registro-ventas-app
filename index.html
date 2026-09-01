@@ -149,6 +149,19 @@
   .tab-activo{background:var(--green); color:var(--paper); border-color:var(--green);}
   .reporte-producto-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--paper-line); font-size:0.92rem;}
   .reporte-producto-row:last-child{border-bottom:none;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #imprimible, #imprimible *{visibility:visible;}
+    #imprimible{
+      display:block !important; position:absolute; top:0; left:0; width:100%;
+      padding:20px; background:#fff; color:#000;
+    }
+    #imprimible h1{font-family:'Spectral', serif; margin-bottom:4px;}
+    #imprimible table{width:100%; border-collapse:collapse; margin-top:14px;}
+    #imprimible th, #imprimible td{border:1px solid #ccc; padding:6px 10px; text-align:left; font-size:0.9rem;}
+    #imprimible th{background:#f0ede2;}
+  }
 </style>
 </head>
 <body>
@@ -252,9 +265,15 @@
   <section id="seccion-reportes">
     <div class="section-title"><h2>Resumen</h2><span class="hint">Suma automática de tu historial</span></div>
     <div class="card">
-      <div class="row" style="margin-bottom:6px;">
-        <button class="btn-ghost" id="tab-semana" onclick="cambiarPeriodo('semana')">Esta semana</button>
-        <button class="btn-ghost" id="tab-mes" onclick="cambiarPeriodo('mes')">Este mes</button>
+      <div class="row" style="margin-bottom:6px; justify-content:space-between;">
+        <div style="display:flex; gap:10px;">
+          <button class="btn-ghost" id="tab-semana" onclick="cambiarPeriodo('semana')">Esta semana</button>
+          <button class="btn-ghost" id="tab-mes" onclick="cambiarPeriodo('mes')">Este mes</button>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn-ghost" onclick="exportarExcel()">⬇ Excel</button>
+          <button class="btn-ghost" onclick="exportarPDF()">⬇ PDF</button>
+        </div>
       </div>
       <div id="reporte-contenido"></div>
     </div>
@@ -267,8 +286,11 @@
 </div>
 </div>
 
+<div id="imprimible" style="display:none;"></div>
+
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
@@ -544,6 +566,62 @@ function renderReporte(){
         </div>
       `).join('')}
     </div>`;
+}
+
+function diasDelPeriodo(){
+  const desde = periodoActivo === 'semana' ? fechaDeHace(6) : fechaDeHace(29);
+  return historial.filter(d => d.fecha >= desde);
+}
+
+window.exportarExcel = function(){
+  const dias = diasDelPeriodo();
+  if(dias.length === 0){ showToast('No hay datos para exportar en este período'); return; }
+
+  const filasDias = dias.map(d => ({
+    Fecha: d.fecha, 'Total vendido': d.totalVentas, Unidades: d.totalUnidades, Detalle: d.detalle
+  }));
+
+  const porProducto = {};
+  dias.forEach(d => {
+    Object.entries(d.porProducto || {}).forEach(([nombre, info]) => {
+      if(!porProducto[nombre]) porProducto[nombre] = { cantidad:0, subtotal:0 };
+      porProducto[nombre].cantidad += info.cantidad;
+      porProducto[nombre].subtotal += info.subtotal;
+    });
+  });
+  const filasProductos = Object.entries(porProducto).map(([nombre, info]) => ({
+    Producto: nombre, Cantidad: info.cantidad, 'Total vendido': info.subtotal
+  }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasDias), 'Días');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasProductos), 'Por producto');
+
+  const etiqueta = periodoActivo === 'semana' ? 'semana' : 'mes';
+  XLSX.writeFile(wb, `ventana-reporte-${etiqueta}-${hoyISO()}.xlsx`);
+}
+
+window.exportarPDF = function(){
+  const dias = diasDelPeriodo();
+  if(dias.length === 0){ showToast('No hay datos para exportar en este período'); return; }
+
+  const totalVentas = dias.reduce((a,d)=>a+d.totalVentas,0);
+  const totalUnidades = dias.reduce((a,d)=>a+d.totalUnidades,0);
+  const etiqueta = periodoActivo === 'semana' ? 'Esta semana' : 'Este mes';
+
+  const imprimible = document.getElementById('imprimible');
+  imprimible.innerHTML = `
+    <h1>${nombreNegocio || 'Ventana'}</h1>
+    <p>Reporte · ${etiqueta} · Generado el ${hoyLegible()}</p>
+    <p><strong>Total vendido: ${money(totalVentas)} — ${totalUnidades} unidad(es) en ${dias.length} día(s)</strong></p>
+    <table>
+      <thead><tr><th>Fecha</th><th>Total</th><th>Unidades</th><th>Detalle</th></tr></thead>
+      <tbody>
+        ${dias.map(d => `<tr><td>${d.fecha}</td><td>${money(d.totalVentas)}</td><td>${d.totalUnidades}</td><td>${d.detalle}</td></tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  window.print();
 }
 
 function renderInventario(){
