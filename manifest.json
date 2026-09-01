@@ -1,6 +1,6 @@
 {
-  "name": "Registro de Ventas e Inventario",
-  "short_name": "Registro",
+  "name": "Ventana — Registro de Ventas e Inventario",
+  "short_name": "Ventana",
   "description": "Registra tus ventas del día y controla tu inventario automáticamente.",
   "start_url": "./index.html",
   "scope": "./",

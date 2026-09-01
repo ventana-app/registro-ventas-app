@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro de Ventas e Inventario</title>
+<title>Ventana — Registro de Ventas e Inventario</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#3F5A3E">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Registro">
+<meta name="apple-mobile-web-app-title" content="Ventana">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=Karla:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet">
@@ -111,8 +111,8 @@
 
 <div id="login-screen">
   <div class="login-box">
-    <h1>Registro diario</h1>
-    <p class="sub">Ventas e inventario por negocio.</p>
+    <h1>Ventana</h1>
+    <p class="sub">Registro diario de ventas e inventario, por negocio.</p>
     <div class="tabs">
       <div class="tab active" id="tab-login" onclick="cambiarTab('login')">Iniciar sesión</div>
       <div class="tab" id="tab-registro" onclick="cambiarTab('registro')">Crear cuenta</div>
@@ -136,7 +136,7 @@
 <div id="app-screen">
 <div class="wrap">
   <header>
-    <div><h1>Registro diario</h1><span id="fecha"></span></div>
+    <div><h1>Ventana</h1><span id="fecha"></span></div>
     <div class="top-actions">
       <span class="negocio-nombre" id="negocio-nombre"></span>
       <button class="btn-ghost" onclick="cerrarSesion()">Cerrar sesión</button>
@@ -200,12 +200,12 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
 // ⚠️ Reemplaza esto con la configuración de TU proyecto de Firebase
 // (Firebase console → configuración del proyecto → tus apps → SDK config)
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyC6e7Bo-oTa9v0fsZd6JZ2xbP0JyFOduMw",
+  authDomain: "ventana-17555.firebaseapp.com",
+  projectId: "ventana-17555",
+  storageBucket: "ventana-17555.firebasestorage.app",
+  messagingSenderId: "53946096001",
+  appId: "1:53946096001:web:ef0776be9b97d432753080"
 };
 
 const app = initializeApp(firebaseConfig);
