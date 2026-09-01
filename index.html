@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Ventas e Inventario</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3F5A3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Registro">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=Karla:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3E7;
+    --paper-line:#D8CFB0;
+    --ink:#20301F;
+    --ink-soft:#4B5A42;
+    --rust:#8B4A2B;
+    --green:#3F5A3E;
+    --danger:#A23B2E;
+    --card:#FFFDF6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Karla', sans-serif; font-size:16px; line-height:1.5;
+    padding-bottom:60px;
+  }
+  h1,h2,h3{font-family:'Spectral', serif; color:var(--ink); font-weight:600; margin:0;}
+  .num{font-family:'Space Mono', monospace;}
+  .wrap{max-width:820px; margin:0 auto; padding:0 20px;}
+
+  header{
+    padding:28px 0 18px; border-bottom:2px solid var(--ink);
+    display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;
+  }
+  header h1{font-size:1.7rem;}
+  #fecha{color:var(--ink-soft); font-size:0.95rem;}
+  .top-actions{display:flex; align-items:center; gap:14px;}
+  .negocio-nombre{font-family:'Spectral', serif; font-size:1rem; color:var(--green);}
+
+  section{margin-top:34px;}
+  .section-title{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px;}
+  .section-title h2{font-size:1.15rem;}
+  .hint{color:var(--ink-soft); font-size:0.85rem;}
+
+  .card{background:var(--card); border:1px solid var(--paper-line); border-radius:2px; padding:20px;}
+
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;}
+  .field{display:flex; flex-direction:column; gap:5px; flex:1 1 140px;}
+  .field label{font-size:0.8rem; color:var(--ink-soft);}
+  .field input, .field select{
+    padding:10px 12px; border:1px solid var(--paper-line); background:var(--paper);
+    font-family:'Karla', sans-serif; font-size:0.95rem; border-radius:2px; color:var(--ink); width:100%;
+  }
+  button{font-family:'Karla', sans-serif; font-weight:700; font-size:0.9rem; padding:11px 18px; border:none; border-radius:2px; cursor:pointer;}
+  .btn-add{background:var(--green); color:var(--paper);}
+  .btn-add:hover{background:var(--ink);}
+  .btn-close{background:var(--rust); color:var(--paper); width:100%; margin-top:16px; padding:14px;}
+  .btn-close:hover{background:var(--danger);}
+  .btn-ghost{background:none; border:1px solid var(--paper-line); color:var(--ink-soft); padding:8px 14px; font-size:0.82rem;}
+  .btn-ghost:hover{border-color:var(--ink);}
+  .btn-del{background:none; color:var(--danger); border:none; cursor:pointer; font-size:0.85rem;}
+
+  table{width:100%; border-collapse:collapse; margin-top:10px;}
+  th{text-align:left; font-size:0.75rem; color:var(--ink-soft); border-bottom:1px solid var(--ink); padding:6px 8px 8px; font-weight:500;}
+  td{padding:9px 8px; border-bottom:1px dashed var(--paper-line); font-size:0.92rem;}
+  td.num, th.num{text-align:right;}
+  tr:last-child td{border-bottom:none;}
+  .empty-row td{color:var(--ink-soft); font-style:italic; text-align:center; padding:20px;}
+  .low-stock{color:var(--danger); font-weight:700;}
+
+  .totals-line{display:flex; justify-content:space-between; padding-top:14px; margin-top:10px; border-top:2px solid var(--ink); font-size:1.05rem;}
+  .totals-line strong{font-family:'Spectral', serif; font-size:1.3rem;}
+
+  #resumen-cierre{display:none; margin-top:18px;}
+  #resumen-cierre .card{border-color:var(--green);}
+  #resumen-cierre h3{color:var(--green); margin-bottom:10px;}
+
+  .historial-item{padding:14px 0; border-bottom:1px dashed var(--paper-line); display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+  .historial-item:last-child{border-bottom:none;}
+  .historial-item .fecha{font-family:'Spectral', serif; color:var(--ink);}
+  .historial-item .detalle{color:var(--ink-soft); font-size:0.85rem;}
+
+  .status{font-size:0.82rem; color:var(--ink-soft); margin-top:8px; min-height:1.2em;}
+  .status.error{color:var(--danger);}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--paper); padding:10px 20px; border-radius:2px; font-size:0.88rem; opacity:0; pointer-events:none; transition:opacity .25s; z-index:50;}
+  .toast.show{opacity:1;}
+
+  #login-screen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
+  .login-box{background:var(--card); border:1px solid var(--paper-line); border-radius:2px; padding:34px 30px; width:100%; max-width:380px;}
+  .login-box h1{font-size:1.5rem; margin-bottom:6px;}
+  .login-box p.sub{color:var(--ink-soft); font-size:0.9rem; margin-bottom:24px;}
+  .tabs{display:flex; gap:0; margin-bottom:22px; border-bottom:1px solid var(--paper-line);}
+  .tab{flex:1; text-align:center; padding:10px 0; cursor:pointer; font-size:0.9rem; color:var(--ink-soft); border-bottom:2px solid transparent;}
+  .tab.active{color:var(--ink); border-bottom-color:var(--green); font-weight:700;}
+  .login-form{display:flex; flex-direction:column; gap:14px;}
+  .btn-login{background:var(--green); color:var(--paper); padding:13px; width:100%; margin-top:6px;}
+  .btn-login:hover{background:var(--ink);}
+  .btn-login:disabled{opacity:0.6; cursor:default;}
+
+  #app-screen{display:none;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Registro diario</h1>
+    <p class="sub">Ventas e inventario por negocio.</p>
+    <div class="tabs">
+      <div class="tab active" id="tab-login" onclick="cambiarTab('login')">Iniciar sesión</div>
+      <div class="tab" id="tab-registro" onclick="cambiarTab('registro')">Crear cuenta</div>
+    </div>
+    <form class="login-form" id="form-login" onsubmit="event.preventDefault(); iniciarSesion();">
+      <div class="field"><label>Correo</label><input type="email" id="login-correo" required></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="login-clave" required></div>
+      <button class="btn-login" type="submit" id="btn-login">Entrar</button>
+      <div class="status" id="login-status"></div>
+    </form>
+    <form class="login-form" id="form-registro" style="display:none;" onsubmit="event.preventDefault(); crearCuenta();">
+      <div class="field"><label>Nombre del negocio</label><input type="text" id="reg-nombre" required></div>
+      <div class="field"><label>Correo</label><input type="email" id="reg-correo" required></div>
+      <div class="field"><label>Contraseña (mín. 6 caracteres)</label><input type="password" id="reg-clave" required minlength="6"></div>
+      <button class="btn-login" type="submit" id="btn-registro">Crear cuenta</button>
+      <div class="status" id="registro-status"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app-screen">
+<div class="wrap">
+  <header>
+    <div><h1>Registro diario</h1><span id="fecha"></span></div>
+    <div class="top-actions">
+      <span class="negocio-nombre" id="negocio-nombre"></span>
+      <button class="btn-ghost" onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <section id="seccion-inventario">
+    <div class="section-title"><h2>Inventario</h2><span class="hint">Agrega tus productos y el stock inicial</span></div>
+    <div class="card">
+      <div class="row">
+        <div class="field"><label for="prod-nombre">Producto</label><input type="text" id="prod-nombre" placeholder="Ej: Empanada"></div>
+        <div class="field" style="flex:0 1 110px;"><label for="prod-stock">Stock inicial</label><input type="number" id="prod-stock" min="0" placeholder="0"></div>
+        <div class="field" style="flex:0 1 110px;"><label for="prod-precio">Precio ($)</label><input type="number" id="prod-precio" min="0" step="0.01" placeholder="0.00"></div>
+        <button class="btn-add" onclick="agregarProducto()">Añadir</button>
+      </div>
+      <table><thead><tr><th>Producto</th><th class="num">Stock</th><th class="num">Precio</th><th></th></tr></thead>
+        <tbody id="tabla-inventario"></tbody></table>
+    </div>
+  </section>
+
+  <section id="seccion-venta">
+    <div class="section-title"><h2>Registrar venta</h2><span class="hint">Cada venta descuenta del inventario al instante</span></div>
+    <div class="card">
+      <div class="row">
+        <div class="field" style="flex:2 1 200px;"><label for="venta-producto">Producto</label><select id="venta-producto"></select></div>
+        <div class="field" style="flex:0 1 100px;"><label for="venta-cantidad">Cantidad</label><input type="number" id="venta-cantidad" min="1" value="1"></div>
+        <button class="btn-add" onclick="registrarVenta()">Registrar venta</button>
+      </div>
+      <div class="status" id="venta-status"></div>
+    </div>
+  </section>
+
+  <section id="seccion-hoy">
+    <div class="section-title"><h2>Ventas de hoy</h2><span class="hint" id="conteo-ventas-hoy"></span></div>
+    <div class="card">
+      <table><thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">P. unit.</th><th class="num">Subtotal</th><th></th></tr></thead>
+        <tbody id="tabla-ventas-hoy"></tbody></table>
+      <div class="totals-line"><span>Total del día</span><strong class="num" id="total-hoy">$0.00</strong></div>
+      <button class="btn-close" onclick="cerrarDia()">Cerrar día y generar reporte</button>
+      <div id="resumen-cierre"><div class="card"><h3>Reporte del día</h3><div id="resumen-contenido"></div></div></div>
+    </div>
+  </section>
+
+  <section id="seccion-historial">
+    <div class="section-title"><h2>Historial de días cerrados</h2><span class="hint">Últimos registros guardados</span></div>
+    <div class="card" id="card-historial"><div id="lista-historial"></div></div>
+  </section>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+// ⚠️ Reemplaza esto con la configuración de TU proyecto de Firebase
+// (Firebase console → configuración del proyecto → tus apps → SDK config)
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let uid = null;
+let inventario = [];
+let ventasHoy = [];
+let historial = [];
+let nombreNegocio = '';
+
+function money(n){ return '$' + Number(n).toFixed(2); }
+function hoyISO(){ return new Date().toISOString().slice(0,10); }
+function hoyLegible(){ return new Date().toLocaleDateString('es-EC', { weekday:'long', year:'numeric', month:'long', day:'numeric' }); }
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+window.cambiarTab = function(tab){
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-registro').classList.toggle('active', tab==='registro');
+  document.getElementById('form-login').style.display = tab==='login' ? 'flex' : 'none';
+  document.getElementById('form-registro').style.display = tab==='registro' ? 'flex' : 'none';
+}
+
+window.iniciarSesion = async function(){
+  const correo = document.getElementById('login-correo').value.trim();
+  const clave = document.getElementById('login-clave').value;
+  const status = document.getElementById('login-status');
+  const btn = document.getElementById('btn-login');
+  status.className = 'status'; status.textContent = '';
+  btn.disabled = true;
+  try{
+    await signInWithEmailAndPassword(auth, correo, clave);
+  }catch(e){
+    status.className = 'status error';
+    status.textContent = 'Correo o contraseña incorrectos.';
+  }
+  btn.disabled = false;
+}
+
+window.crearCuenta = async function(){
+  const nombre = document.getElementById('reg-nombre').value.trim();
+  const correo = document.getElementById('reg-correo').value.trim();
+  const clave = document.getElementById('reg-clave').value;
+  const status = document.getElementById('registro-status');
+  const btn = document.getElementById('btn-registro');
+  status.className = 'status'; status.textContent = '';
+  if(!nombre){ status.className='status error'; status.textContent='Escribe el nombre del negocio.'; return; }
+  btn.disabled = true;
+  try{
+    const cred = await createUserWithEmailAndPassword(auth, correo, clave);
+    await setDoc(doc(db, 'negocios', cred.user.uid), {
+      nombre, inventario: [], ventasHoy: { fecha: hoyISO(), items: [] }, historial: []
+    });
+  }catch(e){
+    status.className = 'status error';
+    status.textContent = e.code === 'auth/email-already-in-use' ? 'Ese correo ya tiene una cuenta.' : 'No se pudo crear la cuenta. Revisa los datos.';
+  }
+  btn.disabled = false;
+}
+
+window.cerrarSesion = async function(){ await signOut(auth); }
+
+onAuthStateChanged(auth, async (user) => {
+  if(user){
+    uid = user.uid;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    document.getElementById('fecha').textContent = hoyLegible();
+    await cargarNegocio();
+  } else {
+    uid = null;
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+});
+
+async function cargarNegocio(){
+  const ref = doc(db, 'negocios', uid);
+  const snap = await getDoc(ref);
+  if(!snap.exists()){ showToast('No se encontró la información del negocio'); return; }
+  const data = snap.data();
+  nombreNegocio = data.nombre || '';
+  inventario = data.inventario || [];
+  historial = data.historial || [];
+  const vh = data.ventasHoy;
+  ventasHoy = (vh && vh.fecha === hoyISO()) ? vh.items : [];
+  document.getElementById('negocio-nombre').textContent = nombreNegocio;
+  renderTodo();
+}
+
+async function guardarNegocio(){
+  try{
+    await setDoc(doc(db, 'negocios', uid), {
+      nombre: nombreNegocio, inventario, ventasHoy: { fecha: hoyISO(), items: ventasHoy }, historial
+    }, { merge: true });
+  }catch(e){ showToast('No se pudo guardar (revisa tu conexión)'); }
+}
+
+function renderTodo(){ renderInventario(); renderSelectProductos(); renderVentasHoy(); renderHistorial(); }
+
+function renderInventario(){
+  const tbody = document.getElementById('tabla-inventario');
+  if(inventario.length === 0){ tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Aún no has añadido productos</td></tr>'; return; }
+  tbody.innerHTML = inventario.map(p => `
+    <tr><td>${p.nombre}</td><td class="num ${p.stock <= 3 ? 'low-stock' : ''}">${p.stock}</td><td class="num">${money(p.precio)}</td>
+    <td><button class="btn-del" onclick="eliminarProducto('${p.id}')">quitar</button></td></tr>`).join('');
+}
+
+function renderSelectProductos(){
+  const sel = document.getElementById('venta-producto');
+  if(inventario.length === 0){ sel.innerHTML = '<option value="">Añade un producto primero</option>'; return; }
+  sel.innerHTML = inventario.map(p => `<option value="${p.id}">${p.nombre} (stock: ${p.stock})</option>`).join('');
+}
+
+function renderVentasHoy(){
+  const tbody = document.getElementById('tabla-ventas-hoy');
+  const conteo = document.getElementById('conteo-ventas-hoy');
+  if(ventasHoy.length === 0){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Aún no registras ventas hoy</td></tr>';
+  } else {
+    tbody.innerHTML = ventasHoy.map((v,i) => `
+      <tr><td>${v.nombre}</td><td class="num">${v.cantidad}</td><td class="num">${money(v.precio)}</td><td class="num">${money(v.subtotal)}</td>
+      <td><button class="btn-del" onclick="quitarVenta(${i})">deshacer</button></td></tr>`).join('');
+  }
+  const totalUnidades = ventasHoy.reduce((a,v)=>a+v.cantidad,0);
+  conteo.textContent = totalUnidades ? `${totalUnidades} unidad(es) vendidas` : '';
+  document.getElementById('total-hoy').textContent = money(ventasHoy.reduce((a,v)=>a+v.subtotal,0));
+}
+
+function renderHistorial(){
+  const cont = document.getElementById('lista-historial');
+  if(historial.length === 0){ cont.innerHTML = '<p class="hint" style="padding:6px 0;">Todavía no has cerrado ningún día.</p>'; return; }
+  const ordenado = [...historial].reverse().slice(0, 20);
+  cont.innerHTML = ordenado.map(d => `
+    <div class="historial-item"><div><div class="fecha">${d.fechaLegible}</div><div class="detalle">${d.detalle}</div></div>
+    <div class="num" style="text-align:right;"><div><strong>${money(d.totalVentas)}</strong></div><div class="detalle">${d.totalUnidades} unid.</div></div></div>`).join('');
+}
+
+window.agregarProducto = async function(){
+  const nombre = document.getElementById('prod-nombre').value.trim();
+  const stock = parseInt(document.getElementById('prod-stock').value, 10);
+  const precio = parseFloat(document.getElementById('prod-precio').value);
+  if(!nombre || isNaN(stock) || isNaN(precio) || stock < 0 || precio < 0){ showToast('Completa nombre, stock y precio válidos'); return; }
+  inventario.push({ id: 'p' + Date.now(), nombre, stock, precio });
+  document.getElementById('prod-nombre').value = '';
+  document.getElementById('prod-stock').value = '';
+  document.getElementById('prod-precio').value = '';
+  await guardarNegocio();
+  renderInventario(); renderSelectProductos();
+  showToast('Producto añadido');
+}
+
+window.eliminarProducto = async function(id){
+  inventario = inventario.filter(p => p.id !== id);
+  await guardarNegocio();
+  renderInventario(); renderSelectProductos();
+}
+
+window.registrarVenta = async function(){
+  const id = document.getElementById('venta-producto').value;
+  const cantidad = parseInt(document.getElementById('venta-cantidad').value, 10);
+  const status = document.getElementById('venta-status');
+  const prod = inventario.find(p => p.id === id);
+  if(!prod){ status.textContent = 'Añade primero un producto al inventario.'; return; }
+  if(!cantidad || cantidad <= 0){ status.textContent = 'Ingresa una cantidad válida.'; return; }
+  if(cantidad > prod.stock){ status.textContent = `Solo quedan ${prod.stock} unidades de ${prod.nombre}.`; return; }
+  prod.stock -= cantidad;
+  ventasHoy.push({ productoId: prod.id, nombre: prod.nombre, cantidad, precio: prod.precio, subtotal: cantidad * prod.precio });
+  status.textContent = '';
+  document.getElementById('venta-cantidad').value = 1;
+  await guardarNegocio();
+  renderTodo();
+  showToast(`Venta registrada: ${cantidad} × ${prod.nombre}`);
+}
+
+window.quitarVenta = async function(index){
+  const v = ventasHoy[index];
+  const prod = inventario.find(p => p.id === v.productoId);
+  if(prod) prod.stock += v.cantidad;
+  ventasHoy.splice(index, 1);
+  await guardarNegocio();
+  renderTodo();
+}
+
+window.cerrarDia = async function(){
+  if(ventasHoy.length === 0){ showToast('No hay ventas registradas para cerrar el día'); return; }
+  const totalVentas = ventasHoy.reduce((a,v)=>a+v.subtotal,0);
+  const totalUnidades = ventasHoy.reduce((a,v)=>a+v.cantidad,0);
+  const porProducto = {};
+  ventasHoy.forEach(v => {
+    if(!porProducto[v.nombre]) porProducto[v.nombre] = { cantidad:0, subtotal:0 };
+    porProducto[v.nombre].cantidad += v.cantidad;
+    porProducto[v.nombre].subtotal += v.subtotal;
+  });
+  const detalleTexto = Object.entries(porProducto).map(([nombre, d]) => `${nombre} ×${d.cantidad}`).join(', ');
+  historial.push({ fecha: hoyISO(), fechaLegible: hoyLegible(), totalVentas, totalUnidades, detalle: detalleTexto, porProducto });
+
+  const resumenDiv = document.getElementById('resumen-cierre');
+  document.getElementById('resumen-contenido').innerHTML = `
+    <table><thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Subtotal</th></tr></thead>
+      <tbody>${Object.entries(porProducto).map(([nombre,d]) => `<tr><td>${nombre}</td><td class="num">${d.cantidad}</td><td class="num">${money(d.subtotal)}</td></tr>`).join('')}</tbody></table>
+    <div class="totals-line"><span>Total vendido</span><strong class="num">${money(totalVentas)}</strong></div>
+    <p class="hint" style="margin-top:10px;">Stock actualizado. El inventario restante queda listo para mañana.</p>`;
+  resumenDiv.style.display = 'block';
+
+  ventasHoy = [];
+  await guardarNegocio();
+  renderTodo();
+  showToast('Día cerrado y guardado en el historial');
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
