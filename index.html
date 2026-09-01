@@ -128,6 +128,23 @@
   }
   .aviso-vencimiento a{color:var(--rust); font-weight:700; text-decoration:none;}
   .aviso-vencimiento a:hover{text-decoration:underline;}
+
+  #admin-screen{display:none;}
+  .admin-row{
+    display:flex; justify-content:space-between; align-items:center; gap:14px;
+    padding:14px 0; border-bottom:1px dashed var(--paper-line); flex-wrap:wrap;
+  }
+  .admin-row:last-child{border-bottom:none;}
+  .admin-neg-nombre{font-family:'Spectral', serif; font-size:1.05rem;}
+  .admin-neg-correo{color:var(--ink-soft); font-size:0.85rem;}
+  .estado-pill{
+    font-size:0.78rem; padding:3px 10px; border-radius:20px; font-weight:700;
+  }
+  .estado-activo{background:#DCE8D6; color:var(--green);}
+  .estado-pronto{background:var(--sand); color:var(--rust);}
+  .estado-vencido{background:#F3D9D2; color:var(--danger);}
+  .btn-renovar{background:var(--green); color:var(--paper); padding:9px 16px; font-size:0.85rem;}
+  .btn-renovar:hover{background:var(--ink);}
 </style>
 </head>
 <body>
@@ -162,6 +179,21 @@
     <p>Tu acceso a Ventana está pausado porque la mensualidad venció. Escríbenos para renovar y seguimos activando tu cuenta al momento.</p>
     <a class="btn-whatsapp" id="link-whatsapp-bloqueo" href="#" target="_blank">Renovar por WhatsApp</a>
     <p style="margin-top:20px;"><button class="btn-ghost" onclick="cerrarSesion()">Cerrar sesión</button></p>
+  </div>
+</div>
+
+<div id="admin-screen">
+  <div class="wrap">
+    <header>
+      <div><h1>Panel de administrador</h1><span id="admin-fecha"></span></div>
+      <div class="top-actions">
+        <button class="btn-ghost" onclick="cerrarSesion()">Cerrar sesión</button>
+      </div>
+    </header>
+    <section>
+      <div class="section-title"><h2>Negocios registrados</h2><span class="hint" id="admin-conteo"></span></div>
+      <div class="card"><div id="admin-lista"></div></div>
+    </section>
   </div>
 </div>
 
@@ -228,7 +260,9 @@ import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const ADMIN_UID = "VvfXJwS0NwWq3b7ASsc92a5huMj2";
 
 // ⚠️ Reemplaza esto con la configuración de TU proyecto de Firebase
 // (Firebase console → configuración del proyecto → tus apps → SDK config)
@@ -303,7 +337,7 @@ window.crearCuenta = async function(){
   try{
     const cred = await createUserWithEmailAndPassword(auth, correo, clave);
     await setDoc(doc(db, 'negocios', cred.user.uid), {
-      nombre, inventario: [], ventasHoy: { fecha: hoyISO(), items: [] }, historial: [],
+      nombre, correo, inventario: [], ventasHoy: { fecha: hoyISO(), items: [] }, historial: [],
       vencimiento: sumarDias(hoyISO(), 30)
     });
   }catch(e){
@@ -319,15 +353,64 @@ onAuthStateChanged(auth, async (user) => {
   if(user){
     uid = user.uid;
     document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('fecha').textContent = hoyLegible();
-    await cargarNegocio();
+    if(uid === ADMIN_UID){
+      document.getElementById('admin-fecha').textContent = hoyLegible();
+      document.getElementById('admin-screen').style.display = 'block';
+      await cargarPanelAdmin();
+    } else {
+      document.getElementById('fecha').textContent = hoyLegible();
+      await cargarNegocio();
+    }
   } else {
     uid = null;
     document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('admin-screen').style.display = 'none';
     document.getElementById('bloqueo-screen').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
   }
 });
+
+async function cargarPanelAdmin(){
+  const cont = document.getElementById('admin-lista');
+  const conteo = document.getElementById('admin-conteo');
+  cont.innerHTML = '<p class="hint">Cargando...</p>';
+  const snap = await getDocs(collection(db, 'negocios'));
+  const negocios = [];
+  snap.forEach(d => { if(d.id !== ADMIN_UID) negocios.push({ id: d.id, ...d.data() }); });
+  conteo.textContent = `${negocios.length} negocio(s)`;
+
+  if(negocios.length === 0){
+    cont.innerHTML = '<p class="hint">Todavía no hay negocios registrados.</p>';
+    return;
+  }
+
+  const hoy = hoyISO();
+  cont.innerHTML = negocios.map(n => {
+    const venc = n.vencimiento || '—';
+    const dias = n.vencimiento ? Math.round((new Date(n.vencimiento) - new Date(hoy)) / 86400000) : null;
+    let estadoClase = 'estado-activo', estadoTexto = 'Activo';
+    if(dias !== null && dias < 0){ estadoClase = 'estado-vencido'; estadoTexto = 'Vencido'; }
+    else if(dias !== null && dias <= 5){ estadoClase = 'estado-pronto'; estadoTexto = `Vence en ${dias}d`; }
+    return `
+      <div class="admin-row">
+        <div>
+          <div class="admin-neg-nombre">${n.nombre || '(sin nombre)'}</div>
+          <div class="admin-neg-correo">${n.correo || ''} · vence: ${venc}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="estado-pill ${estadoClase}">${estadoTexto}</span>
+          <button class="btn-renovar" onclick="renovarNegocio('${n.id}')">Renovar 30 días</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.renovarNegocio = async function(negocioId){
+  const nuevaFecha = sumarDias(hoyISO(), 30);
+  await setDoc(doc(db, 'negocios', negocioId), { vencimiento: nuevaFecha }, { merge: true });
+  showToast('Renovado hasta ' + nuevaFecha);
+  await cargarPanelAdmin();
+}
 
 function mensajeWhatsapp(nombreNeg){
   const texto = encodeURIComponent(`Hola, quiero renovar la suscripción de Ventana para ${nombreNeg || 'mi negocio'}.`);
