@@ -105,6 +105,29 @@
   .btn-login:disabled{opacity:0.6; cursor:default;}
 
   #app-screen{display:none;}
+
+  #bloqueo-screen{
+    display:none; min-height:100vh; align-items:center; justify-content:center; padding:24px;
+  }
+  .bloqueo-box{
+    background:var(--card); border:1px solid var(--danger); border-radius:2px;
+    padding:34px 30px; width:100%; max-width:400px; text-align:center;
+  }
+  .bloqueo-box h1{font-size:1.4rem; color:var(--danger); margin-bottom:14px;}
+  .bloqueo-box p{color:var(--ink-soft); font-size:0.95rem; margin-bottom:22px;}
+  .btn-whatsapp{
+    display:inline-block; background:var(--green); color:var(--paper);
+    padding:13px 26px; text-decoration:none; border-radius:2px; font-weight:700; font-size:0.92rem;
+  }
+  .btn-whatsapp:hover{background:var(--ink);}
+
+  .aviso-vencimiento{
+    background:var(--sand); border:1px solid var(--terracotta, var(--rust)); color:var(--ink);
+    padding:12px 16px; border-radius:2px; margin-top:18px; font-size:0.9rem;
+    display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .aviso-vencimiento a{color:var(--rust); font-weight:700; text-decoration:none;}
+  .aviso-vencimiento a:hover{text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -133,6 +156,15 @@
   </div>
 </div>
 
+<div id="bloqueo-screen">
+  <div class="bloqueo-box">
+    <h1>Suscripción vencida</h1>
+    <p>Tu acceso a Ventana está pausado porque la mensualidad venció. Escríbenos para renovar y seguimos activando tu cuenta al momento.</p>
+    <a class="btn-whatsapp" id="link-whatsapp-bloqueo" href="#" target="_blank">Renovar por WhatsApp</a>
+    <p style="margin-top:20px;"><button class="btn-ghost" onclick="cerrarSesion()">Cerrar sesión</button></p>
+  </div>
+</div>
+
 <div id="app-screen">
 <div class="wrap">
   <header>
@@ -142,6 +174,7 @@
       <button class="btn-ghost" onclick="cerrarSesion()">Cerrar sesión</button>
     </div>
   </header>
+  <div id="aviso-vencimiento-cont"></div>
 
   <section id="seccion-inventario">
     <div class="section-title"><h2>Inventario</h2><span class="hint">Agrega tus productos y el stock inicial</span></div>
@@ -250,6 +283,14 @@ window.iniciarSesion = async function(){
   btn.disabled = false;
 }
 
+const WHATSAPP_NUMERO = "593992653908"; // 0992653908 en formato internacional
+
+function sumarDias(fechaISO, dias){
+  const f = new Date(fechaISO + 'T00:00:00');
+  f.setDate(f.getDate() + dias);
+  return f.toISOString().slice(0,10);
+}
+
 window.crearCuenta = async function(){
   const nombre = document.getElementById('reg-nombre').value.trim();
   const correo = document.getElementById('reg-correo').value.trim();
@@ -262,7 +303,8 @@ window.crearCuenta = async function(){
   try{
     const cred = await createUserWithEmailAndPassword(auth, correo, clave);
     await setDoc(doc(db, 'negocios', cred.user.uid), {
-      nombre, inventario: [], ventasHoy: { fecha: hoyISO(), items: [] }, historial: []
+      nombre, inventario: [], ventasHoy: { fecha: hoyISO(), items: [] }, historial: [],
+      vencimiento: sumarDias(hoyISO(), 30)
     });
   }catch(e){
     status.className = 'status error';
@@ -277,15 +319,50 @@ onAuthStateChanged(auth, async (user) => {
   if(user){
     uid = user.uid;
     document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display = 'block';
     document.getElementById('fecha').textContent = hoyLegible();
     await cargarNegocio();
   } else {
     uid = null;
     document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('bloqueo-screen').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
   }
 });
+
+function mensajeWhatsapp(nombreNeg){
+  const texto = encodeURIComponent(`Hola, quiero renovar la suscripción de Ventana para ${nombreNeg || 'mi negocio'}.`);
+  return `https://wa.me/${WHATSAPP_NUMERO}?text=${texto}`;
+}
+
+function revisarVencimiento(vencimientoStr){
+  const hoy = hoyISO();
+  const venc = vencimientoStr || sumarDias(hoy, 30);
+  const vencido = venc < hoy;
+  const dias = Math.round((new Date(venc) - new Date(hoy)) / 86400000);
+
+  const link = mensajeWhatsapp(nombreNegocio);
+
+  if(vencido){
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('link-whatsapp-bloqueo').href = link;
+    document.getElementById('bloqueo-screen').style.display = 'flex';
+    return false;
+  }
+
+  document.getElementById('bloqueo-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+
+  const cont = document.getElementById('aviso-vencimiento-cont');
+  if(dias <= 5){
+    cont.innerHTML = `<div class="aviso-vencimiento">
+      <span>Tu suscripción vence en ${dias} día(s) (${venc}).</span>
+      <a href="${link}" target="_blank">Renovar por WhatsApp →</a>
+    </div>`;
+  } else {
+    cont.innerHTML = '';
+  }
+  return true;
+}
 
 async function cargarNegocio(){
   const ref = doc(db, 'negocios', uid);
@@ -298,6 +375,12 @@ async function cargarNegocio(){
   const vh = data.ventasHoy;
   ventasHoy = (vh && vh.fecha === hoyISO()) ? vh.items : [];
   document.getElementById('negocio-nombre').textContent = nombreNegocio;
+  let vencimiento = data.vencimiento;
+  if(!vencimiento){
+    vencimiento = sumarDias(hoyISO(), 30);
+    setDoc(ref, { vencimiento }, { merge: true }).catch(()=>{});
+  }
+  revisarVencimiento(vencimiento);
   renderTodo();
 }
 
