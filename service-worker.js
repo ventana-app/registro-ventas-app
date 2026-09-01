@@ -1,11 +1,12 @@
-const CACHE_NAME = 'registro-ventas-v7';
+const CACHE_NAME = 'registro-ventas-v8';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './icon-512-maskable.png'
+  './icon-512-maskable.png',
+  './terminos.html'
 ];
 
 self.addEventListener('install', (event) => {
