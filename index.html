@@ -300,7 +300,7 @@ import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const ADMIN_UID = "mwWi9s7iPPTnfE7PAAxkEsJ72uv2";
 
@@ -426,23 +426,43 @@ async function cargarPanelAdmin(){
 
   const hoy = hoyISO();
   cont.innerHTML = negocios.map(n => {
-    const venc = n.vencimiento || '—';
+    const venc = n.vencimiento || sumarDias(hoy, 30);
     const dias = n.vencimiento ? Math.round((new Date(n.vencimiento) - new Date(hoy)) / 86400000) : null;
     let estadoClase = 'estado-activo', estadoTexto = 'Activo';
     if(dias !== null && dias < 0){ estadoClase = 'estado-vencido'; estadoTexto = 'Vencido'; }
     else if(dias !== null && dias <= 5){ estadoClase = 'estado-pronto'; estadoTexto = `Vence en ${dias}d`; }
+    const inputId = 'fecha-' + n.id;
     return `
       <div class="admin-row">
         <div>
           <div class="admin-neg-nombre">${n.nombre || '(sin nombre)'}</div>
-          <div class="admin-neg-correo">${n.correo || ''} · vence: ${venc}</div>
+          <div class="admin-neg-correo">${n.correo || ''}</div>
         </div>
-        <div style="display:flex; align-items:center; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <span class="estado-pill ${estadoClase}">${estadoTexto}</span>
-          <button class="btn-renovar" onclick="renovarNegocio('${n.id}')">Renovar 30 días</button>
+          <input type="date" id="${inputId}" value="${venc}" style="padding:8px 10px; border:1px solid var(--paper-line); border-radius:2px; background:var(--paper); font-family:'Karla', sans-serif; font-size:0.85rem;">
+          <button class="btn-renovar" onclick="guardarVencimiento('${n.id}', '${inputId}')">Guardar</button>
+          <button class="btn-renovar" onclick="renovarNegocio('${n.id}')">+30 días</button>
+          <button class="btn-del" onclick="eliminarNegocio('${n.id}', '${(n.nombre || '').replace(/'/g, "\\'")}')">eliminar</button>
         </div>
       </div>`;
   }).join('');
+}
+
+window.eliminarNegocio = async function(negocioId, nombre){
+  const confirmado = confirm(`¿Eliminar el negocio "${nombre}"? Esto borra todos sus datos (inventario, ventas, historial) y no se puede deshacer. Su cuenta de acceso quedará inválida.`);
+  if(!confirmado) return;
+  await deleteDoc(doc(db, 'negocios', negocioId));
+  showToast('Negocio eliminado');
+  await cargarPanelAdmin();
+}
+
+window.guardarVencimiento = async function(negocioId, inputId){
+  const nuevaFecha = document.getElementById(inputId).value;
+  if(!nuevaFecha){ showToast('Elige una fecha válida'); return; }
+  await setDoc(doc(db, 'negocios', negocioId), { vencimiento: nuevaFecha }, { merge: true });
+  showToast('Vencimiento actualizado a ' + nuevaFecha);
+  await cargarPanelAdmin();
 }
 
 window.renovarNegocio = async function(negocioId){
