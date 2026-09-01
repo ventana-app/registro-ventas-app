@@ -145,6 +145,10 @@
   .estado-vencido{background:#F3D9D2; color:var(--danger);}
   .btn-renovar{background:var(--green); color:var(--paper); padding:9px 16px; font-size:0.85rem;}
   .btn-renovar:hover{background:var(--ink);}
+
+  .tab-activo{background:var(--green); color:var(--paper); border-color:var(--green);}
+  .reporte-producto-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--paper-line); font-size:0.92rem;}
+  .reporte-producto-row:last-child{border-bottom:none;}
 </style>
 </head>
 <body>
@@ -242,6 +246,17 @@
       <div class="totals-line"><span>Total del día</span><strong class="num" id="total-hoy">$0.00</strong></div>
       <button class="btn-close" onclick="cerrarDia()">Cerrar día y generar reporte</button>
       <div id="resumen-cierre"><div class="card"><h3>Reporte del día</h3><div id="resumen-contenido"></div></div></div>
+    </div>
+  </section>
+
+  <section id="seccion-reportes">
+    <div class="section-title"><h2>Resumen</h2><span class="hint">Suma automática de tu historial</span></div>
+    <div class="card">
+      <div class="row" style="margin-bottom:6px;">
+        <button class="btn-ghost" id="tab-semana" onclick="cambiarPeriodo('semana')">Esta semana</button>
+        <button class="btn-ghost" id="tab-mes" onclick="cambiarPeriodo('mes')">Este mes</button>
+      </div>
+      <div id="reporte-contenido"></div>
     </div>
   </section>
 
@@ -475,7 +490,61 @@ async function guardarNegocio(){
   }catch(e){ showToast('No se pudo guardar (revisa tu conexión)'); }
 }
 
-function renderTodo(){ renderInventario(); renderSelectProductos(); renderVentasHoy(); renderHistorial(); }
+let periodoActivo = 'semana';
+
+function renderTodo(){ renderInventario(); renderSelectProductos(); renderVentasHoy(); renderHistorial(); renderReporte(); }
+
+window.cambiarPeriodo = function(periodo){
+  periodoActivo = periodo;
+  renderReporte();
+}
+
+function fechaDeHace(dias){
+  const f = new Date();
+  f.setDate(f.getDate() - dias);
+  return f.toISOString().slice(0,10);
+}
+
+function renderReporte(){
+  document.getElementById('tab-semana').classList.toggle('tab-activo', periodoActivo === 'semana');
+  document.getElementById('tab-mes').classList.toggle('tab-activo', periodoActivo === 'mes');
+
+  const desde = periodoActivo === 'semana' ? fechaDeHace(6) : fechaDeHace(29);
+  const dias = historial.filter(d => d.fecha >= desde);
+  const cont = document.getElementById('reporte-contenido');
+
+  if(dias.length === 0){
+    cont.innerHTML = '<p class="hint" style="padding:8px 0;">Todavía no hay días cerrados en este período.</p>';
+    return;
+  }
+
+  const totalVentas = dias.reduce((a,d)=>a+d.totalVentas,0);
+  const totalUnidades = dias.reduce((a,d)=>a+d.totalUnidades,0);
+
+  const porProducto = {};
+  dias.forEach(d => {
+    Object.entries(d.porProducto || {}).forEach(([nombre, info]) => {
+      if(!porProducto[nombre]) porProducto[nombre] = { cantidad:0, subtotal:0 };
+      porProducto[nombre].cantidad += info.cantidad;
+      porProducto[nombre].subtotal += info.subtotal;
+    });
+  });
+  const productosOrdenados = Object.entries(porProducto).sort((a,b) => b[1].subtotal - a[1].subtotal);
+
+  cont.innerHTML = `
+    <div class="totals-line" style="border-top:none; padding-top:4px;">
+      <span>${dias.length} día(s) cerrados · ${totalUnidades} unidad(es)</span>
+      <strong class="num">${money(totalVentas)}</strong>
+    </div>
+    <div style="margin-top:14px;">
+      ${productosOrdenados.map(([nombre, info]) => `
+        <div class="reporte-producto-row">
+          <span>${nombre}</span>
+          <span class="num">${info.cantidad} · ${money(info.subtotal)}</span>
+        </div>
+      `).join('')}
+    </div>`;
+}
 
 function renderInventario(){
   const tbody = document.getElementById('tabla-inventario');
