@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.github.ventana_app.twa",
+    "sha256_cert_fingerprints": ["C2:14:DA:CC:0A:C8:E1:44:D1:7B:6E:85:A6:6C:F7:1D:49:49:78:2C:57:0B:F5:E6:49:98:06:96:4A:13:E3:93"]
+  }
+}]
