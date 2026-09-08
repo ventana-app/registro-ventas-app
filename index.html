@@ -103,6 +103,12 @@
   .btn-login{background:var(--green); color:var(--paper); padding:13px; width:100%; margin-top:6px;}
   .btn-login:hover{background:var(--ink);}
   .btn-login:disabled{opacity:0.6; cursor:default;}
+  .divider-o{display:flex; align-items:center; gap:10px; margin:16px 0 4px; color:var(--ink-soft); font-size:0.8rem;}
+  .divider-o::before{content:''; flex:1; height:1px; background:var(--paper-line);}
+  .divider-o::after{content:''; flex:1; height:1px; background:var(--paper-line);}
+  .btn-google{background:#fff; color:#3c4043; border:1px solid var(--paper-line); padding:12px; width:100%; font-weight:700; border-radius:2px; cursor:pointer;}
+  .btn-google:hover{background:#f7f7f7;}
+  .btn-google:disabled{opacity:0.6; cursor:default;}
 
   #app-screen{display:none;}
 
@@ -178,6 +184,8 @@
       <div class="field"><label>Correo</label><input type="email" id="login-correo" required></div>
       <div class="field"><label>Contraseña</label><input type="password" id="login-clave" required></div>
       <button class="btn-login" type="submit" id="btn-login">Entrar</button>
+      <div class="divider-o">o</div>
+      <button class="btn-google" type="button" id="btn-google-login" onclick="continuarConGoogle('login')">Continuar con Google</button>
       <div class="status" id="login-status"></div>
     </form>
     <form class="login-form" id="form-registro" style="display:none;" onsubmit="event.preventDefault(); crearCuenta();">
@@ -185,6 +193,8 @@
       <div class="field"><label>Correo</label><input type="email" id="reg-correo" required></div>
       <div class="field"><label>Contraseña (mín. 6 caracteres)</label><input type="password" id="reg-clave" required minlength="6"></div>
       <button class="btn-login" type="submit" id="btn-registro">Crear cuenta</button>
+      <div class="divider-o">o</div>
+      <button class="btn-google" type="button" id="btn-google-registro" onclick="continuarConGoogle('registro')">Registrarme con Google</button>
       <div class="status" id="registro-status"></div>
     </form>
     <p style="text-align:center; font-size:0.8rem; color:var(--ink-soft); margin-top:20px;">
@@ -298,7 +308,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  onAuthStateChanged, signOut
+  onAuthStateChanged, signOut, GoogleAuthProvider, signInWithRedirect
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -318,6 +328,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+  const googleProvider = new GoogleAuthProvider();
 
 let uid = null;
 let inventario = [];
@@ -387,12 +398,59 @@ window.crearCuenta = async function(){
   btn.disabled = false;
 }
 
+  window.continuarConGoogle = async function(modo){
+    const status = document.getElementById(modo === 'login' ? 'login-status' : 'registro-status');
+    status.className = 'status'; status.textContent = '';
+    if(modo === 'registro'){
+      const nombre = document.getElementById('reg-nombre').value.trim();
+      if(!nombre){
+        status.className = 'status error';
+        status.textContent = 'Escribe el nombre del negocio antes de continuar con Google.';
+        return;
+      }
+      sessionStorage.setItem('ventana_google_modo', 'registro');
+      sessionStorage.setItem('ventana_google_nombre', nombre);
+    } else {
+      sessionStorage.setItem('ventana_google_modo', 'login');
+    }
+    try{
+      await signInWithRedirect(auth, googleProvider);
+    }catch(e){
+      status.className = 'status error';
+      status.textContent = 'No se pudo continuar con Google.';
+    }
+  }
+
 window.cerrarSesion = async function(){ await signOut(auth); }
 
 onAuthStateChanged(auth, async (user) => {
   if(user){
     uid = user.uid;
     document.getElementById('login-screen').style.display = 'none';
+
+  const modoGoogle = sessionStorage.getItem('ventana_google_modo');
+    if(modoGoogle){
+      sessionStorage.removeItem('ventana_google_modo');
+      const nombreGooglePendiente = sessionStorage.getItem('ventana_google_nombre');
+      sessionStorage.removeItem('ventana_google_nombre');
+      const refNegocio = doc(db, 'negocios', uid);
+      const snapNegocio = await getDoc(refNegocio);
+      if(!snapNegocio.exists()){
+        if(modoGoogle === 'registro'){
+          await setDoc(refNegocio, {
+            nombre: nombreGooglePendiente || (user.displayName || 'Mi negocio'), correo: user.email || '', inventario: [], ventasHoy: { fecha: hoyISO(), items: [] }, historial: [],
+            vencimiento: sumarDias(hoyISO(), 30)
+          });
+        } else {
+          await signOut(auth);
+          document.getElementById('login-screen').style.display = 'flex';
+          const statusLogin = document.getElementById('login-status');
+          statusLogin.className = 'status error';
+          statusLogin.textContent = 'No existe una cuenta con este correo de Google.';
+          return;
+        }
+      }
+    }
     if(uid === ADMIN_UID){
       document.getElementById('admin-fecha').textContent = hoyLegible();
       document.getElementById('admin-screen').style.display = 'block';
