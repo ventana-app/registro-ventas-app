@@ -1,4 +1,4 @@
-const CACHE_NAME = 'registro-ventas-v10';
+const CACHE_NAME = 'registro-ventas-v11';
 const ASSETS = [
   './',
   './index.html',
